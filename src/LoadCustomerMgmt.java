@@ -4,6 +4,7 @@ import com.avaje.ebean.EbeanServerFactory;
 import com.avaje.ebean.config.DataSourceConfig;
 import com.avaje.ebean.config.ServerConfig;
 import com.sun.xml.internal.stream.events.XMLEventAllocatorImpl;
+import model.DimAccount;
 import model.DimCustomer;
 import org.avaje.agentloader.AgentLoader;
 
@@ -20,7 +21,9 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 
 /**
@@ -34,38 +37,18 @@ import java.util.Date;
  */
 public class LoadCustomerMgmt {
 
-  enum Mode {NEW, UPDATE, NULL}
-
   static final String filename = "/Users/mark/Desktop/TPC-DI/data/Batch1/CustomerMgmt.xml";
   static XMLEventAllocator allocator;
   static DimCustomer dimCustomer = null;
-  static DimCustomer dimCustomerOld = null;
+  static List<DimAccount> accounts = null;
+  static DimAccount dimAccount = null;
   static String tagContent = null;
   static Mode mode = Mode.NULL;
   static String phone = null;
-
   static SimpleDateFormat formatter = new SimpleDateFormat("yyyy-M-dd");
   static SimpleDateFormat timeStamp = new SimpleDateFormat("yyyy-M-d'T'H:m:s");
   static Date futureNullDate;
   static Date actionTimestamp;
-
-  /**
-   * Load the agent into the running JVM process.
-   */
-  public static void someApplicationBootupMethod() {
-    if (!AgentLoader.loadAgentFromClasspath("avaje-ebeanorm-agent", "debug=1;packages=model.**")) {
-      System.out.println("avaje-ebeanorm-agent not found in classpath - not dynamically loaded");
-    }
-
-    System.out.println("avaje-ebeanorm-agent loaded");
-  }
-
-
-  static void deleteDatabase() {
-    for (DimCustomer c : DimCustomer.find.all()) {
-      c.delete();
-    }
-  }
 
   /**
    * Open an XML file and process the contents.
@@ -96,43 +79,92 @@ public class LoadCustomerMgmt {
         Attribute attr = event.getAttributeByName(new QName("ActionType"));
         // System.out.println ("Action: " + attr.getValue());
 
-        if (attr.getValue().equals("NEW")) {
-          System.out.println("Start new customer");
 
-          dimCustomer = new DimCustomer();
-          mode = Mode.NEW;
-        }
-        else if (attr.getValue().equals("UPDCUST")) {
-          System.out.println("Start Update customer");
-
-          dimCustomer = new DimCustomer();
-          mode = Mode.UPDATE;
+        switch (attr.getValue()) {
+          case "NEW":
+            System.out.println("Start NEW");
+            mode = Mode.NEW;
+            break;
+          case "ADDACCT":
+            System.out.println("Start ADDACCT");
+            mode = Mode.ADDACCT;
+            break;
+          case "UPDCUST":
+            System.out.println("Start UPDCUST");
+            mode = Mode.UPDCUST;
+            break;
+          case "UPDACCT":
+            System.out.println("Start UPDACCT");
+            mode = Mode.UPDACCT;
+            break;
+          case "CLOSEACCT":
+            System.out.println("Start CLOSEACCT");
+            mode = Mode.CLOSEACCT;
+            break;
+          case "INACT":
+            System.out.println("Start INACT");
+            mode = Mode.INACT;
+            break;
+          default:
+            throw new IllegalArgumentException("Invalid attribute: [" + attr.getValue() + "]");
         }
 
         attr = event.getAttributeByName(new QName("ActionTS"));
         actionTimestamp = timeStamp.parse(attr.getValue());
       }
+
+      if (eventType == XMLStreamConstants.END_ELEMENT && xmlr.getLocalName().equals("Action") && mode != Mode.NULL) {
+        mode = Mode.NULL;
+        actionTimestamp = null;
+      }
+
+
       if (eventType == XMLStreamConstants.START_ELEMENT && xmlr.getLocalName().equals("Customer") && mode != Mode.NULL) {
         StartElement event = getXMLEvent(xmlr).asStartElement();
 
+        accounts = new ArrayList<DimAccount>();
+        String customerID;
+
         Attribute attr = event.getAttributeByName(new QName("C_ID"));
-        System.out.println("Customer ID = [" + attr.getValue() + "]");
-        dimCustomer.setCustomerID(Long.parseLong(attr.getValue()));
+        customerID = attr.getValue();
+        System.out.println("  Customer ID = [" + customerID + "]");
 
-        if (mode == Mode.UPDATE) {
-          dimCustomerOld = DimCustomer.find.where().eq("customer_id", attr.getValue()).eq("is_current", "1").findUnique();
-          DimCustomer.copyData(dimCustomerOld, dimCustomer);
-
-          System.out.println("Update customer ID = " + dimCustomerOld.getCustomerID() + "  " + dimCustomer.getCustomerID());
+        if (mode == Mode.NEW || mode == Mode.UPDCUST || mode == Mode.INACT) {
+          dimCustomer = new DimCustomer();
+          dimCustomer.setCustomerID(Long.parseLong(attr.getValue()));  // I think this gets moved into logic below...
 
           ////////
-          // Set Kimballian Type 2 (Old record)
+          // Kimballian Type 2 (New Customer Record)
+          dimCustomer.setIsCurrent(true);
+          dimCustomer.setEffectiveDate(actionTimestamp);
+          dimCustomer.setEndDate(futureNullDate);
+        }
+
+        if (mode == Mode.ADDACCT || mode == Mode.UPDACCT || mode == Mode.CLOSEACCT) {
+          dimCustomer = DimCustomer.find.where().eq("customer_id", customerID).eq("is_current", "1").findUnique();
+        }
+
+        // Copy the original row before making any changes...
+        if (mode == Mode.UPDCUST || mode == Mode.INACT) {
+          DimCustomer dimCustomerOld = DimCustomer.find.where().eq("customer_id", customerID).eq("is_current", "1").findUnique();
+          DimCustomer.copyData(dimCustomerOld, dimCustomer);
+
+          ////////
+          // Kimballian Type 2 (Old Customer Record)
           dimCustomerOld.setIsCurrent(false);
           dimCustomerOld.setEndDate(actionTimestamp);
           dimCustomerOld.save();
           dimCustomerOld = null;
+          System.out.println("  Copy old customer record");
         }
 
+        if (mode == Mode.NEW) {
+          dimCustomer.setStatus("Active");
+        }
+
+        if (mode == Mode.INACT) {
+          dimCustomer.setStatus("Inactive");
+        }
 
         attr = event.getAttributeByName(new QName("C_TAX_ID"));
         if (attr != null) {
@@ -146,7 +178,12 @@ public class LoadCustomerMgmt {
 
         attr = event.getAttributeByName(new QName("C_TIER"));
         if (attr != null) {
-          dimCustomer.setTier(Integer.parseInt(attr.getValue()));
+          if (!attr.getValue().trim().isEmpty()) {
+            dimCustomer.setTier(Integer.parseInt(attr.getValue()));
+          }
+          else {
+            dimCustomer.setTier(null);
+          }
         }
 
         attr = event.getAttributeByName(new QName("C_DOB"));
@@ -154,23 +191,85 @@ public class LoadCustomerMgmt {
           dimCustomer.setDob(formatter.parse(attr.getValue()));
         }
 
-        ////////
-        // Set Kimballian Type 2 (New recrod)
-        dimCustomer.setIsCurrent(true);
-        dimCustomer.setEffectiveDate(actionTimestamp);
-        dimCustomer.setEndDate(futureNullDate);
+      } // START_ELEMENT "Customer"
 
-      }
-      else if (eventType == XMLStreamConstants.CHARACTERS) {
-        tagContent = xmlr.getText().trim();
-      }
 
-      else if (eventType == XMLStreamConstants.END_ELEMENT && xmlr.getLocalName().equals("Action") && mode != Mode.NULL) {
-        dimCustomer.save();
-        System.out.println("Saved");
+      if (eventType == XMLStreamConstants.END_ELEMENT && xmlr.getLocalName().equals("Customer") && mode != Mode.NULL) {
+        if (mode == Mode.NEW || mode == Mode.UPDCUST || mode == Mode.INACT) {
+          dimCustomer.save();
+          System.out.println("  Save customer  UID = [" + dimCustomer.getsK_CustomerID() + "]   Customer ID = [" + dimCustomer.getCustomerID() + "]");
+        }
 
+        // Iterate over accounts
+        for (DimAccount account : accounts) {
+          account.setsK_CustomerId(dimCustomer.getsK_CustomerID());
+          account.save();
+          System.out.println("    Save account   UID = [" + account.getsK_AccountId() + "]   Account ID = [" + account.getAccountID() + "]");
+        }
+
+        //for (DimAccount account : accounts) {  // I'm going for an explicit delete... just in case GC can't sort it out.
+        //  accounts.remove(account);
+        //}
+        accounts = null;
         dimCustomer = null;
-        mode = Mode.NULL;
+      } // END_ELEMENT "Customer"
+
+
+      if (eventType == XMLStreamConstants.START_ELEMENT && xmlr.getLocalName().equals("Account") && mode != Mode.NULL) {
+        StartElement event = getXMLEvent(xmlr).asStartElement();
+
+        Attribute attr = event.getAttributeByName(new QName("CA_ID"));
+        String accountID = attr.getValue();
+        System.out.println("    Account ID = [" + accountID + "]");
+
+        // If we're here, we will always create a new account...
+        dimAccount = new DimAccount();
+        dimAccount.setAccountID(accountID);
+
+        ////////
+        // Kimballian Type 2 (New Account Record)
+        dimAccount.setIsCurrent(true);
+        dimAccount.setEffectiveDate(actionTimestamp);
+        dimAccount.setEndDate(futureNullDate);
+
+        if (mode == Mode.UPDACCT || mode == Mode.CLOSEACCT) {
+          DimAccount dimAccountOld = DimAccount.find.where().eq("account_id", accountID).eq("is_current", "1").findUnique();
+          DimAccount.copyData(dimAccountOld, dimAccount);
+
+          ////////
+          // Kimballian Type 2 (Old Account Record)
+          dimAccountOld.setIsCurrent(false);
+          dimAccountOld.setEndDate(actionTimestamp);
+          dimAccountOld.save();
+          dimAccountOld = null;
+          System.out.println("    Copy old account record");
+        }
+
+        if (mode == Mode.NEW || mode == Mode.ADDACCT) {
+          dimAccount.setStatus("Active");
+        }
+
+        if (mode == Mode.CLOSEACCT) {
+          dimAccount.setStatus("Inactive");
+        }
+
+        attr = event.getAttributeByName(new QName("CA_TAX_ST"));
+        if (attr != null) {
+          dimAccount.setTaxStatus(attr.getValue());
+        }
+
+      } // START_ELEMENT "Account"
+
+
+      if (eventType == XMLStreamConstants.END_ELEMENT && xmlr.getLocalName().equals("Account") && mode != Mode.NULL) {
+        accounts.add(dimAccount);
+
+        dimAccount = null;
+      }
+
+
+      if (eventType == XMLStreamConstants.CHARACTERS) {
+        tagContent = xmlr.getText().trim();
       }
 
       else if (eventType == XMLStreamConstants.END_ELEMENT && xmlr.getLocalName().equals("C_L_NAME") && mode != Mode.NULL) {
@@ -205,6 +304,12 @@ public class LoadCustomerMgmt {
       }
       else if (eventType == XMLStreamConstants.END_ELEMENT && xmlr.getLocalName().equals("C_ALT_EMAIL") && mode != Mode.NULL) {
         dimCustomer.seteMail2(tagContent);
+      }
+      else if (eventType == XMLStreamConstants.END_ELEMENT && xmlr.getLocalName().equals("CA_B_ID") && mode != Mode.NULL) {
+        dimAccount.setBrokerId(tagContent);
+      }
+      else if (eventType == XMLStreamConstants.END_ELEMENT && xmlr.getLocalName().equals("CA_NAME") && mode != Mode.NULL) {
+        dimAccount.setAccountDesc(tagContent);
       }
       else if (eventType == XMLStreamConstants.START_ELEMENT && xmlr.getLocalName().equals("C_PHONE_1") && mode != Mode.NULL) {
         phone = "";
@@ -280,6 +385,7 @@ public class LoadCustomerMgmt {
 
     //config.addPackage("model.*");
     config.addClass(DimCustomer.class);
+    config.addClass(DimAccount.class);
 
 // create the EbeanServer instance
     EbeanServer server = EbeanServerFactory.create(config);
@@ -299,5 +405,30 @@ public class LoadCustomerMgmt {
       throws XMLStreamException {
     return allocator.allocate(reader);
   }
+
+  /**
+   * Load the agent into the running JVM process.
+   */
+  public static void someApplicationBootupMethod() {
+    if (!AgentLoader.loadAgentFromClasspath("avaje-ebeanorm-agent", "debug=1;packages=model.**")) {
+      System.out.println("avaje-ebeanorm-agent not found in classpath - not dynamically loaded");
+    }
+
+    System.out.println("avaje-ebeanorm-agent loaded");
+  }
+
+  static void deleteDatabase() {
+    for (DimAccount c : DimAccount.find.all()) {
+      c.delete();
+    }
+    for (DimCustomer c : DimCustomer.find.all()) {
+      c.delete();
+    }
+    System.out.println("Database deleted");
+  }
+
+
+  enum Mode {NEW, UPDCUST, ADDACCT, UPDACCT, CLOSEACCT, INACT, NULL}
+
 
 }

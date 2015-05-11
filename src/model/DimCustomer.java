@@ -17,7 +17,7 @@ public class DimCustomer extends Model {
   String firstName;
   String middleInitial;
   String gender;
-  int tier;
+  Integer tier;
   Date dob;
   String addressLine1;
   String addressLine2;
@@ -30,6 +30,7 @@ public class DimCustomer extends Model {
   String phone3;
   String eMail1;
   String eMail2;
+  String status;
   Boolean isCurrent;
   Date effectiveDate;
   Date endDate;
@@ -55,6 +56,7 @@ public class DimCustomer extends Model {
     dst.phone3 = src.phone3;
     dst.eMail1 = src.eMail1;
     dst.eMail2 = src.eMail2;
+    dst.status = src.status;
   }
 
   public static final Finder<Long,DimCustomer> find = new Finder<>(Long.class, DimCustomer.class);
@@ -235,11 +237,19 @@ public class DimCustomer extends Model {
     this.taxID = taxID;
   }
 
-  public int getTier() {
+  public Integer getTier() {
     return tier;
   }
 
-  public void setTier(int tier) {
+  public void setTier(Integer tier) {
     this.tier = tier;
+  }
+
+  public String getStatus() {
+    return status;
+  }
+
+  public void setStatus(String status) {
+    this.status = status;
   }
 }
