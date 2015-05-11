@@ -6,6 +6,7 @@ import com.avaje.ebean.config.ServerConfig;
 import com.sun.xml.internal.stream.events.XMLEventAllocatorImpl;
 import model.DimAccount;
 import model.DimCustomer;
+import model.FactCashTransaction;
 import org.avaje.agentloader.AgentLoader;
 
 import javax.xml.namespace.QName;
@@ -386,17 +387,19 @@ public class LoadCustomerMgmt {
     //config.addPackage("model.*");
     config.addClass(DimCustomer.class);
     config.addClass(DimAccount.class);
+    config.addClass(FactCashTransaction.class);
 
 // create the EbeanServer instance
     EbeanServer server = EbeanServerFactory.create(config);
     Ebean.register(server, true);
 
 
-    DimCustomer x = new DimCustomer();
-    x.setAddressLine1("I am Sam");
-    Ebean.save(x);
+//    DimCustomer x = new DimCustomer();
+//    x.setAddressLine1("I am Sam");
+//    Ebean.save(x);
 
     processCustomerMgmt();
+    LoadCashTransactions.load();
 
     System.out.println("End load TPM");
   }
@@ -418,6 +421,9 @@ public class LoadCustomerMgmt {
   }
 
   static void deleteDatabase() {
+ //  for (FactCashTransaction f : FactCashTransaction.find.all()) {
+ //     f.delete();
+ //   }
     for (DimAccount c : DimAccount.find.all()) {
       c.delete();
     }

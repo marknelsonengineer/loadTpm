@@ -40,6 +40,13 @@ create table dim_customer (
   constraint pk_dim_customer primary key (s_k_customer_id))
 ;
 
+create table fact_cash_transaction (
+  sk_customer_id            number(19),
+  sk_account_id             number(19),
+  transaction_date          timestamp,
+  cash_transaction          number(19,4))
+;
+
 create sequence dim_account_seq;
 
 create sequence dim_customer_seq;
