@@ -3,11 +3,13 @@ package model;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.Table;
+import javax.persistence.UniqueConstraint;
 import java.util.Date;
 import com.avaje.ebean.Model;
+import com.avaje.ebean.annotation.Index;
 
 @Entity
-@Table
+@Table(uniqueConstraints={@UniqueConstraint(columnNames = {"account_id", "effective_date"})})
 public class DimAccount extends Model {
   @Id
   long sK_AccountId;
@@ -17,6 +19,7 @@ public class DimAccount extends Model {
   String status;
   String accountDesc;
   String taxStatus;
+  @Index
   Boolean isCurrent;
   Date effectiveDate;
   Date endDate;

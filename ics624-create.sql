@@ -9,6 +9,7 @@ create table dim_account (
   is_current                number(1),
   effective_date            timestamp,
   end_date                  timestamp,
+  constraint uq_dim_account_1 unique (account_id,effective_date),
   constraint pk_dim_account primary key (s_k_account_id))
 ;
 
@@ -53,3 +54,4 @@ create sequence dim_customer_seq;
 
 
 
+create index ix_dim_account_is_current_1 on dim_account(is_current);

@@ -15,8 +15,9 @@ import java.util.Date;
  */
 public class LoadCashTransactions {
 
-  static final String filename = "/Users/mark/Desktop/TPC-DI/data/Batch1/CashTransaction.txt";
+  static final String filename = "/Users/mark/Desktop/ICS 624 - Data Management/Project Work/Experiments/TPC/scaleFactor3/Batch1/CashTransaction.txt";
   static SimpleDateFormat timeStampFormat = new SimpleDateFormat("yyyy-M-d H:m:s");
+  static SimpleDateFormat oracleDateFormat = new SimpleDateFormat("dd-MMM-yy");
 
   public static void load() throws IOException, ParseException {
     System.out.println("Start loading cash transactions");
@@ -36,7 +37,7 @@ public class LoadCashTransactions {
         Float cashTransaction = Float.parseFloat(parts[2]);
 
         // System.out.println("Account [" + accountId + "]");
-        DimAccount dimAccount = DimAccount.find.where().eq("account_id", accountId).eq("is_current", "1").findUnique();
+        DimAccount dimAccount = DimAccount.find.where().eq("account_id", accountId).betweenProperties("effective_date", "end_date", timeStamp).findUnique();
         DimCustomer dimCustomer = DimCustomer.find.byId(dimAccount.getsK_CustomerId());
 
         FactCashTransaction factCashTransaction = new FactCashTransaction();

@@ -38,7 +38,7 @@ import java.util.List;
  */
 public class LoadCustomerMgmt {
 
-  static final String filename = "/Users/mark/Desktop/TPC-DI/data/Batch1/CustomerMgmt.xml";
+  static final String filename = "/Users/mark/Desktop/ICS 624 - Data Management/Project Work/Experiments/TPC/scaleFactor3/Batch1/CustomerMgmt.xml";
   static XMLEventAllocator allocator;
   static DimCustomer dimCustomer = null;
   static List<DimAccount> accounts = null;
@@ -370,7 +370,7 @@ public class LoadCustomerMgmt {
 
     DataSourceConfig postgresDb = new DataSourceConfig();
     postgresDb.setDriver("oracle.jdbc.OracleDriver");
-    postgresDb.setUsername("kimball");
+    postgresDb.setUsername("tpm_kimball");
     postgresDb.setPassword("Pougsat00");
     postgresDb.setUrl("jdbc:oracle:thin:@//10.0.1.23:1521/ics690");
     postgresDb.setHeartbeatSql("select * from dual;");
@@ -393,10 +393,6 @@ public class LoadCustomerMgmt {
     EbeanServer server = EbeanServerFactory.create(config);
     Ebean.register(server, true);
 
-
-//    DimCustomer x = new DimCustomer();
-//    x.setAddressLine1("I am Sam");
-//    Ebean.save(x);
 
     processCustomerMgmt();
     LoadCashTransactions.load();
