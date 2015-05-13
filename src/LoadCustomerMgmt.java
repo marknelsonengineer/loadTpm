@@ -135,24 +135,22 @@ public class LoadCustomerMgmt {
           dimCustomer.setCustomerID(Long.parseLong(attr.getValue()));  // I think this gets moved into logic below...
 
           ////////
-          // Kimballian Type 2 (New Customer Record)
-          dimCustomer.setIsCurrent(true);
+          // Type 2x (New Customer Record)
           dimCustomer.setEffectiveDate(actionTimestamp);
           dimCustomer.setEndDate(futureNullDate);
         }
 
         if (mode == Mode.ADDACCT || mode == Mode.UPDACCT || mode == Mode.CLOSEACCT) {
-          dimCustomer = DimCustomer.find.where().eq("customer_id", customerID).eq("is_current", "1").findUnique();
+          dimCustomer = DimCustomer.find.where().eq("customer_id", customerID).raw("S_K_CUSTOMER_ID = CURRENT_S_K_CUSTOMER_ID").findUnique();
         }
 
         // Copy the original row before making any changes...
         if (mode == Mode.UPDCUST || mode == Mode.INACT) {
-          DimCustomer dimCustomerOld = DimCustomer.find.where().eq("customer_id", customerID).eq("is_current", "1").findUnique();
+          DimCustomer dimCustomerOld = DimCustomer.find.where().eq("customer_id", customerID).raw("S_K_CUSTOMER_ID = CURRENT_S_K_CUSTOMER_ID").findUnique();
           DimCustomer.copyData(dimCustomerOld, dimCustomer);
 
           ////////
-          // Kimballian Type 2 (Old Customer Record)
-          dimCustomerOld.setIsCurrent(false);
+          // Type 2x (Old Customer Record)
           dimCustomerOld.setEndDate(actionTimestamp);
           dimCustomerOld.save();
           dimCustomerOld = null;
@@ -200,12 +198,25 @@ public class LoadCustomerMgmt {
           dimCustomer.save();
           System.out.println("  Save customer  UID = [" + dimCustomer.getsK_CustomerID() + "]   Customer ID = [" + dimCustomer.getCustomerID() + "]");
         }
+        ////////
+        // Set Type 2x Current_UID for Customer
+        for (DimCustomer customer2x : DimCustomer.find.where().eq("customer_id", dimCustomer.getCustomerID()).findList()) {
+          customer2x.setCurrent_sK_Customer_id(dimCustomer.getsK_CustomerID());
+          customer2x.save();
+        }
 
         // Iterate over accounts
         for (DimAccount account : accounts) {
           account.setsK_CustomerId(dimCustomer.getsK_CustomerID());
           account.save();
           System.out.println("    Save account   UID = [" + account.getsK_AccountId() + "]   Account ID = [" + account.getAccountID() + "]");
+
+          ////////
+          // Set Type 2x Current_UID for Accounts
+          for (DimAccount account2x : DimAccount.find.where().eq("account_id", account.getAccountID()).findList()) {
+            account2x.setCurrent_sk_AccountId(account.getsK_AccountId());
+            account2x.save();
+          }
         }
 
         //for (DimAccount account : accounts) {  // I'm going for an explicit delete... just in case GC can't sort it out.
@@ -228,18 +239,16 @@ public class LoadCustomerMgmt {
         dimAccount.setAccountID(accountID);
 
         ////////
-        // Kimballian Type 2 (New Account Record)
-        dimAccount.setIsCurrent(true);
+        // Type 2x (New Account Record)
         dimAccount.setEffectiveDate(actionTimestamp);
         dimAccount.setEndDate(futureNullDate);
 
         if (mode == Mode.UPDACCT || mode == Mode.CLOSEACCT) {
-          DimAccount dimAccountOld = DimAccount.find.where().eq("account_id", accountID).eq("is_current", "1").findUnique();
+          DimAccount dimAccountOld = DimAccount.find.where().eq("account_id", accountID).raw("S_K_ACCOUNT_ID = CURRENT_SK_ACCOUNT_ID").findUnique();
           DimAccount.copyData(dimAccountOld, dimAccount);
 
           ////////
-          // Kimballian Type 2 (Old Account Record)
-          dimAccountOld.setIsCurrent(false);
+          // Type 2x (Old Account Record)
           dimAccountOld.setEndDate(actionTimestamp);
           dimAccountOld.save();
           dimAccountOld = null;
@@ -370,7 +379,7 @@ public class LoadCustomerMgmt {
 
     DataSourceConfig postgresDb = new DataSourceConfig();
     postgresDb.setDriver("oracle.jdbc.OracleDriver");
-    postgresDb.setUsername("tpm_kimball");
+    postgresDb.setUsername("tpm_type_2x");
     postgresDb.setPassword("Pougsat00");
     postgresDb.setUrl("jdbc:oracle:thin:@//10.0.1.23:1521/ics690");
     postgresDb.setHeartbeatSql("select * from dual;");

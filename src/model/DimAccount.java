@@ -20,7 +20,7 @@ public class DimAccount extends Model {
   String accountDesc;
   String taxStatus;
   @Index
-  Boolean isCurrent;
+  long current_sk_AccountId;
   Date effectiveDate;
   Date endDate;
 
@@ -67,12 +67,12 @@ public class DimAccount extends Model {
     this.endDate = endDate;
   }
 
-  public Boolean getIsCurrent() {
-    return isCurrent;
+  public long getCurrent_sk_AccountId() {
+    return current_sk_AccountId;
   }
 
-  public void setIsCurrent(Boolean isCurrent) {
-    this.isCurrent = isCurrent;
+  public void setCurrent_sk_AccountId(long current_sk_AccountId) {
+    this.current_sk_AccountId = current_sk_AccountId;
   }
 
   public long getsK_AccountId() {

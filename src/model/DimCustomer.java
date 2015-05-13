@@ -31,7 +31,7 @@ public class DimCustomer extends Model {
   String eMail1;
   String eMail2;
   String status;
-  Boolean isCurrent;
+  long current_sK_Customer_id;
   Date effectiveDate;
   Date endDate;
 
@@ -157,12 +157,12 @@ public class DimCustomer extends Model {
     this.gender = gender;
   }
 
-  public Boolean getIsCurrent() {
-    return isCurrent;
+  public long getCurrent_sK_Customer_id() {
+    return current_sK_Customer_id;
   }
 
-  public void setIsCurrent(Boolean isCurrent) {
-    this.isCurrent = isCurrent;
+  public void setCurrent_sK_Customer_id(long current_sK_Customer_id) {
+    this.current_sK_Customer_id = current_sK_Customer_id;
   }
 
   public String getLastName() {
